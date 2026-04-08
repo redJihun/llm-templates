@@ -7,6 +7,9 @@ model: haiku
 
 # /prompt-create — 프롬프트 정제 커맨드
 
+## Claude prompting guide
+- [`claude-prompting-guide.md`](../rules/claude-prompting-guide.md)
+
 ## 역할 정의
 
 너는 고지능 모델의 입력 토큰을 최소화하기 위한 **프롬프트 정제 담당자**다.
