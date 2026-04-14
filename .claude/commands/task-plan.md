@@ -73,6 +73,12 @@ Information to collect:
 
 Using the collected information, create `temp/TASK.md` with the Write tool.
 
+#### Potential Risks
+- Identify at most 2 critical side effects.
+- Focus on: Breaking changes in shared components, API contract shifts, or state management conflicts.
+- If no significant risk is found, write: "None identified."
+- Use bullet points, max 2 sentences per risk
+
 #### TASK.md Required Sections
 
 ```markdown
@@ -93,6 +99,11 @@ Using the collected information, create `temp/TASK.md` with the Write tool.
 
 No modification needed:
 - {files not to be touched}
+
+## Potential Risks (Side Effects)
+- **Impact**: {affected component/API} might break due to {reason}.
+- **Check**: Ensure {specific state/type} remains consistent.
+- **Critical**: Do NOT modify {specific logic} to avoid {regression}.
 
 ## Specific Changes
 
