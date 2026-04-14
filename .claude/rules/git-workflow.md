@@ -1,65 +1,118 @@
-# Git 워크플로우 규칙
+# Git Workflow
 
-## 브랜치 전략
-
-```
-main (또는 master)
-├── feat/기능명          # 새 기능
-├── fix/버그설명          # 버그 수정
-├── refac/대상            # 리팩토링
-├── docs/문서명           # 문서 변경
-└── chore/작업명          # 설정, 의존성 등
-```
-
-## 커밋 메시지 규칙
+## Branch Strategy (Git Flow Variant)
 
 ```
-{타입}({스코프}): {제목}
-
-{본문 — "왜" 변경했는지}
-
-{선택: Breaking Change, 관련 이슈 등}
+master              ← Deployable state (with tags)
+  ↑
+develop            ← Development integration branch
+  ↑
+feat/alerts-recent ← Feature branch
+test/security-fix
+bugfix/session-db
 ```
 
-### 타입
+### Rules
+- **master**: Merge commit required (`-m` flag)
+- **develop**: FF-only merge recommended (linear history)
+- **feature branches**: `feat/feature-name`, `bugfix/bug-name`, `test/test-name`
 
-| 타입 | 용도 |
-|------|------|
-| `Feat` | 새 기능 추가 |
-| `Fix` | 버그 수정 |
-| `Refac` | 리팩토링 (동작 변경 없음) |
-| `Test` | 테스트 추가/수정 |
-| `Docs` | 문서 변경 |
-| `Chore` | 빌드, 설정, 의존성 |
-| `Perf` | 성능 개선 |
-
-### 좋은 커밋 메시지
+## Commit Message Format
 
 ```
-Fix(auth): JWT 토큰 만료 시 자동 갱신 실패 수정
+<type>(<scope>): <subject>
 
-refresh_token 갱신 시 exp 클레임을 현재 시각 기준이 아닌
-원본 토큰 발급 시각으로 계산하던 문제 수정.
+<body>
+
+<footer>
 ```
 
-### 나쁜 커밋 메시지
+### Type
+- `feat`: Add new feature
+- `fix`: Bug fix
+- `refactor`: Code cleanup (no functional change)
+- `test`: Add or modify tests
+- `docs`: Add/modify documentation
+- `chore`: Configuration, dependencies, etc.
+
+### Scope (optional)
+- Component/domain name (e.g., `dashboard`, `sessions`, `auth`)
+- Can be omitted
+
+### Subject
+- Imperative present tense ("Fix bug" ✓, "Fixed bug" ✗)
+- No period
+- Korean allowed (recommended)
+- 50 characters or fewer
+
+### Body (optional)
+- What was done (What) + Why it was done (Why)
+- 72 characters or fewer per line
+- Reference related issues: `Closes #123`
+
+### Footer (optional)
+- Breaking change: `BREAKING CHANGE: description`
+- Co-authorship: `Co-Authored-By: name <email>`
+
+## Commit Message Examples
 
 ```
-fix bug           # 무엇을 고쳤는지 모름
-update code       # 의미 없음
-WIP               # 커밋하지 말 것
+feat(dashboard): Add recent alerts query API
+
+Added GET /dashboard/alerts/recent endpoint to query alerts from the last 7 days.
+
+Closes #456
 ```
 
-## PR 규칙
+```
+fix(sessions): Fix session DB insertion omission bug
 
-- PR 제목 70자 이내
-- PR 본문에 "왜" + "테스트 방법" 포함
-- 하나의 PR은 하나의 관심사
-- 자동 생성 파일(lock, build artifacts) 변경만 있는 커밋 분리
+Fixed a bug where changes were not reflected in DB after calling SessionManager.save().
+Transaction commit was missing.
 
-## Git 안전 규칙
+- Added session.commit()
+- Added corresponding test
 
-- `--force` push는 사용자 명시적 요청 시에만
-- `--no-verify` 사용 금지 — 훅 실패 시 원인 해결
-- amend는 push 전 로컬 커밋에만 — push 후 amend 금지
-- `main`/`master` 직접 push 금지 — PR 경유
+Closes #789
+```
+
+## Pre-PR Checklist
+
+- [ ] Branch name follows convention (`feat/...`, `fix/...`)
+- [ ] Commit message format verified (type + scope + subject)
+- [ ] Synced with latest master commit (`git pull origin master`)
+- [ ] ruff check passed (`uv run ruff check issuance_be_fastapi/`)
+- [ ] pytest passed (`uv run pytest tests/ -v`)
+- [ ] New tests included (when adding features)
+- [ ] No secrets/sensitive information committed
+
+## No Force Push Policy
+
+- **master**: Absolutely forbidden
+- **develop**: Only after team agreement
+- **feature**: Allowed only for individual local work
+
+## Merge Strategy
+
+### Merge into develop (PR)
+```bash
+git checkout develop
+git pull origin develop
+git merge feat/feature-name   # FF-only
+git push origin develop
+```
+
+### Merge into master (release)
+```bash
+git checkout master
+git pull origin master
+git merge --no-ff develop   # Create merge commit
+git tag v1.2.3
+git push origin master --tags
+```
+
+## Tag Rules
+
+- Format: `v{MAJOR}.{MINOR}.{PATCH}` (Semantic Versioning)
+- e.g.: `v1.0.0`, `v1.1.2`
+- Tags created on master only

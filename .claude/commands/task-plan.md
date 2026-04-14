@@ -1,129 +1,129 @@
 ---
 name: task-plan
-description: 컨텍스트를 파악해 task-exec가 실행 가능한 TASK.md를 생성
+description: Analyzes context and generates a TASK.md that task-exec can execute
 allowed-tools: ["Read", "Glob", "Grep", "Bash", "Write"]
 model: sonnet
 ---
 
-# /task-plan — 작업 계획 커맨드
+# /task-plan — Task Planning Command
 
-## 역할 정의
+## Role Definition
 
-너는 workflow.md의 **계획 담당자(Phase 1)** 역할이다.
+You are the **Planner (Phase 1)** role defined in workflow.md.
 
-절대 금지:
-- 코드 파일 수정 (Edit 툴 사용 금지)
+Strictly prohibited:
+- Modifying code files (use of the Edit tool is forbidden)
 - git commit, git push
-- TASK.md 이외의 파일 Write
+- Writing files other than TASK.md
 
-허용:
-- Read, Glob, Grep (파일 탐색 및 읽기)
-- Bash (git log / git diff 읽기 전용)
-- Write (temp/TASK.md 생성만)
+Allowed:
+- Read, Glob, Grep (file search and reading)
+- Bash (git log / git diff read-only)
+- Write (only for creating temp/TASK.md)
 
-조건부 허용:
-- 사용자가 명시하지 않은 파일 읽기
-  → 읽기 전 반드시 사용자에게 확인 (파일명과 이유 포함)
-  → 승인 시 읽기, 거부 시 현재 확보한 정보만으로 TASK.md 작성
+Conditionally allowed:
+- Reading files not explicitly specified by the user
+  → Must confirm with the user before reading (include filename and reason)
+  → If approved, read; if refused, write TASK.md using only the information already gathered
 
-## 실행 절차
+## Execution Procedure
 
-### 1. 목적 확인
+### 1. Confirm Objective
 
-$ARGUMENTS를 읽어 작업 목적을 파악한다.
-비어있으면 목적을 질문한다.
+Read $ARGUMENTS to understand the task objective.
+If empty, ask for the objective.
 
-### 2. 컨텍스트 수집 (읽기 전용)
+### 2. Collect Context (read-only)
 
-다음 순서로 정보 수집:
+Gather information in the following order:
 
-#### 2-1. 관련 파일 탐색 (최대 5개)
-- Glob / Grep으로 $ARGUMENTS 키워드와 관련된 파일 탐색
-- **최대 5개 파일만 선정** — 가장 직접 관련된 것 우선
-- 예: "Alert" → alert_log 모델, dashboard crud, dashboard 라우터 순서로 한정
+#### 2-1. Search Related Files (max 5)
+- Search for files related to $ARGUMENTS keywords using Glob / Grep
+- **Select at most 5 files** — prioritize the most directly related ones
+- Example: "Alert" → alert_log model, dashboard crud, dashboard router, in that order
 
-#### 2-2. 대상 파일 읽기 (Grep 우선)
-- **먼저 Grep으로 관련 함수/클래스 위치 확인** — 전체 파일 Read 전 필수
-- Grep으로 충분한 경우 Read 생략 가능
-- Read가 필요한 경우 핵심 함수 주변 50줄 이내만 Read (offset + limit 활용)
-- 병렬 Read 가능
-- **사용자 명시 파일 외 추가 읽기 필요 시**: 파일명과 이유를 밝히고 확인 요청. 거부 시 확보된 정보만으로 TASK.md를 작성하고 불확실 항목을 명시.
+#### 2-2. Read Target Files (Grep first)
+- **First use Grep to locate relevant functions/classes** — required before reading full files
+- If Grep is sufficient, Read can be skipped
+- If Read is needed, read only up to 50 lines around the key function (use offset + limit)
+- Parallel Read is allowed
+- **If additional files beyond those specified by the user are needed**: state the filename and reason, then request confirmation. If refused, write TASK.md using the information gathered so far and explicitly note uncertain items.
 
-#### 2-2-1. 탐색 종료 기준
-다음 중 하나라도 충족되면 탐색 즉시 종료:
-- 수정할 함수/클래스의 현재 코드를 파악했다
-- 관련 스키마/타입 정의를 확인했다
-- 기존 패턴(CLAUDE.md Key Patterns)과 동일한 구조임을 확인했다
+#### 2-2-1. Search Termination Criteria
+Stop searching immediately when any of the following is met:
+- The current code of the function/class to be modified has been identified
+- The related schema/type definition has been confirmed
+- The structure has been confirmed to match an existing pattern (CLAUDE.md Key Patterns)
 
-**목표: 총 Read 횟수 5회 이내, Grep 3회 이내**
+**Goal: total Read calls within 5, Grep calls within 3**
 
-#### 2-3. git 히스토리 확인 (기본 생략)
-- **기본값: 건너뜀** — $ARGUMENTS에 `--with-history` 포함 시에만 실행
-- 실행 시 최대 5건만 확인:
+#### 2-3. Check git history (skipped by default)
+- **Default: skip** — only execute if `--with-history` is included in $ARGUMENTS
+- When executed, check at most 5 entries:
   ```bash
-  git log --oneline -5 -- {관련파일경로}
+  git log --oneline -5 -- {related file path}
   ```
 
-수집 대상 정보:
-- 현재 구현 방식 (코드 패턴)
-- 최근 변경 이력 (커밋 메시지)
-- 관련 타입/스키마 정의
+Information to collect:
+- Current implementation approach (code patterns)
+- Recent change history (commit messages)
+- Related type/schema definitions
 
-### 3. TASK.md 생성
+### 3. Generate TASK.md
 
-수집한 정보를 바탕으로 `temp/TASK.md`를 Write 툴로 생성.
+Using the collected information, create `temp/TASK.md` with the Write tool.
 
-#### TASK.md 필수 섹션
+#### TASK.md Required Sections
 
 ```markdown
-# TASK: {작업 제목}
+# TASK: {task title}
 
-> 작성일: {날짜}
-> 담당: FE/BE 실행자
-> 브랜치: {현재 브랜치}
-> 범위: {수정 대상 파일 목록}
+> Created: {date}
+> Assignee: FE/BE executor
+> Branch: {current branch}
+> Scope: {list of files to be modified}
 
-## 배경
-{현재 문제점 / 목적}
+## Background
+{current problem / objective}
 
-## 수정 대상
-| 파일 | 경로 |
+## Modification Targets
+| File | Path |
 |------|------|
 | ... | ... |
 
-수정 불필요:
-- {건드리지 않을 파일}
+No modification needed:
+- {files not to be touched}
 
-## 구체적 변경 내용
+## Specific Changes
 
-### 1. {변경 항목}
-{코드 블록 또는 명확한 지시 사항}
+### 1. {change item}
+{code block or clear instructions}
 
-### 2. {변경 항목}
+### 2. {change item}
 ...
 
-## 최종 예상 결과
-{변경 후 동작/외형 설명}
+## Expected Final Result
+{description of behavior/appearance after change}
 
-## 검증 기준
-- [ ] 항목1
-- [ ] 항목2
+## Verification Criteria
+- [ ] item1
+- [ ] item2
 ```
 
-#### 작성 품질 기준
+#### Writing Quality Criteria
 
-- `/task-exec`가 추가 판단 없이 그대로 실행 가능할 정도로 구체적
-- 코드 블록은 before/after 형태로 명시 (신규 추가는 after만, 10줄 미만은 인라인 diff 허용)
-- 모호한 표현 금지 ("개선", "정리" → "A를 B로 교체", "X 클래스 제거")
-- 수정 불필요 파일도 명시 (실행자의 범위 이탈 방지)
+- Specific enough that `/task-exec` can execute without any additional judgment
+- Code blocks must specify before/after form (new additions: after only; fewer than 10 lines: inline diff allowed)
+- Ambiguous expressions are forbidden ("improve", "clean up" → "replace A with B", "remove class X")
+- Files that do not need modification must also be listed explicitly (to prevent executor scope drift)
 
-### 4. 완료 보고
+### 4. Completion Report
 
-다음 형식으로 보고:
+Report in the following format:
 
-  TASK.md 생성 완료: temp/TASK.md
-  수정 대상: {파일 수}개 파일
-  검증 기준: {항목 수}개 항목
-  실행 방법: /task-exec temp/TASK.md
+  TASK.md generated: temp/TASK.md
+  Modification targets: {N} files
+  Verification criteria: {N} items
+  How to run: /task-exec temp/TASK.md
 
-코드 수정 없이 종료.
+Terminate without modifying any code.

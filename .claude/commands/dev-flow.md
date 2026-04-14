@@ -1,62 +1,62 @@
 ---
 name: dev-flow
-description: 태스크 설명을 받아 하네스를 선택하고 설계→구현→검증 3단계 워크플로우를 실행하는 디스패처 커맨드
+description: Dispatcher command that receives a task description, selects a harness, and executes the 3-step workflow of design → implementation → verification
 allowed-tools: ["Read", "Glob", "Grep", "Bash", "Write", "Agent"]
 model: sonnet
 ---
 
-# /dev-flow — 하네스 라우터 & 3단계 워크플로우 실행
+# /dev-flow — Harness Router & 3-Step Workflow Execution
 
-## 역할 정의
+## Role Definition
 
-당신은 `.claude/agents/dispatcher.md`의 **Dispatcher** 역할이다.
-태스크를 받아 적합한 에이전트 팀을 선택하고, 3단계(설계→구현→검증)로 순서대로 실행한다.
+You are the **Dispatcher** role from `.claude/agents/dispatcher.md`.
+You receive a task, select the appropriate agent team, and execute the 3 steps (design → implementation → verification) in order.
 
-절대 금지:
-- 하네스 선택을 사용자 확인 없이 결정하는 것
-- Phase 순서를 건너뛰는 것 (구현자 tier가 없는 하네스 제외)
+Strictly prohibited:
+- Deciding harness selection without user confirmation
+- Skipping Phase order (except for harnesses without an implementor tier)
 - git commit, git push
 
-허용:
-- 하네스 후보 제시 후 사용자 선택 대기
-- TASK.md 생성 및 갱신
-- Agent 툴로 각 tier 에이전트 호출
+Allowed:
+- Presenting harness candidates and waiting for user selection
+- Creating and updating TASK.md
+- Invoking each tier's agent via the Agent tool
 
-## 실행 절차
+## Execution Procedure
 
-### 0단계: 입력 파싱
+### Step 0: Input Parsing
 
-`$ARGUMENTS`에서 태스크 설명을 추출한다.
-비어있으면 → "어떤 작업을 진행할까요? 태스크 설명을 입력해주세요." 출력 후 종료.
+Extract the task description from `$ARGUMENTS`.
+If empty → output "What task should we work on? Please enter a task description." and terminate.
 
-### 1단계: 하네스 선택 (dispatcher.md 프로토콜)
+### Step 1: Harness Selection (dispatcher.md protocol)
 
-`.claude/agents/dispatcher.md`의 **태스크 키워드 → 하네스 후보 매핑** 테이블을 기준으로:
+Based on the **task keyword → harness candidate mapping** table in `.claude/agents/dispatcher.md`:
 
-1. `$ARGUMENTS`에서 키워드를 추출한다.
-2. 1순위 + 2순위 하네스를 선정한다.
-3. 다음 형식으로 사용자에게 제시한다:
+1. Extract keywords from `$ARGUMENTS`.
+2. Select 1st priority + 2nd priority harness.
+3. Present to the user in the following format:
 
-    [Dispatcher] 태스크 분석 결과:
+    [Dispatcher] Task analysis result:
 
-    추천 하네스 조합:
-      A. {1순위} + {2순위} ({이유})
-      B. {1순위} 단독 ({이유})
-      C. 직접 지정: ___
+    Recommended harness combinations:
+      A. {1st priority} + {2nd priority} ({reason})
+      B. {1st priority} alone ({reason})
+      C. Specify manually: ___
 
-    어느 조합으로 진행할까요? (A/B/C)
+    Which combination should we proceed with? (A/B/C)
 
-4. 사용자 선택 후 하네스 목록을 확정하고 Phase 1을 시작한다.
+4. After user selection, finalize the harness list and start Phase 1.
 
-> FRONTEND_PATH 관리: fullstack-webapp 하네스 선택 시에만 FRONTEND_PATH를 입력받는다.
-> 미설정 상태면 "프론트엔드 경로를 입력해주세요 (예: ../re-issuance-machine-frontend):" 질문.
+> FRONTEND_PATH management: Only request FRONTEND_PATH input when the fullstack-webapp harness is selected.
+> If not set, ask "Please enter the frontend path (e.g., ../re-issuance-machine-frontend):".
 
-### 2단계: Phase 1 — 설계 (설계자 tier)
+### Step 2: Phase 1 — Design (designer tier)
 
-선택된 각 하네스의 **설계자 tier** 에이전트를 순서대로 실행한다.
+Execute each selected harness's **designer tier** agent in order.
 
-하네스별 설계자 tier (`dispatcher.md` 매핑 테이블 참조):
-| 하네스 | 설계자 tier |
+Designer tier per harness (refer to `dispatcher.md` mapping table):
+| Harness | Designer tier |
 |--------|------------|
 | fullstack-webapp | architect |
 | api-designer | api-architect |
@@ -66,25 +66,25 @@ model: sonnet
 | microservice-designer | domain-analyst, service-architect, communication-designer, observability-engineer |
 | performance-optimizer | bottleneck-analyst |
 
-설계 완료 후 `dispatcher.md`의 **TASK.md 자동 생성 포맷**에 따라 `temp/TASK.md`를 생성한다.
-- 하네스 1개: 단일 섹션 포맷
-- 하네스 2개 이상: 하네스별 섹션 분리 포맷
+After design completion, generate `temp/TASK.md` according to the **TASK.md auto-generation format** in `dispatcher.md`.
+- 1 harness: single section format
+- 2 or more harnesses: separate sections per harness format
 
-### 3단계: Phase 2 — 구현 (구현자 tier)
+### Step 3: Phase 2 — Implementation (implementor tier)
 
-구현자 tier가 없는 하네스(code-reviewer, microservice-designer)는 이 단계를 건너뛴다:
+For harnesses without an implementor tier (code-reviewer, microservice-designer), skip this step:
 
-    [Phase 2 건너뜀] {하네스명}은 구현자 tier가 없습니다. Phase 3으로 진행합니다.
+    [Phase 2 skipped] {harness name} has no implementor tier. Proceeding to Phase 3.
 
-구현자 tier가 있는 경우 `/task-exec temp/TASK.md` 실행을 안내하거나
-Agent 툴로 실행자 역할 에이전트를 호출한다.
+If an implementor tier exists, guide the execution of `/task-exec temp/TASK.md` or
+invoke the implementor role agent via the Agent tool.
 
-### 4단계: Phase 3 — 검증 (검증자 tier)
+### Step 4: Phase 3 — Verification (verifier tier)
 
-선택된 각 하네스의 **검증자 tier** 에이전트를 순서대로 실행한다.
+Execute each selected harness's **verifier tier** agent in order.
 
-하네스별 검증자 tier (`dispatcher.md` 매핑 테이블 참조):
-| 하네스 | 검증자 tier |
+Verifier tier per harness (refer to `dispatcher.md` mapping table):
+| Harness | Verifier tier |
 |--------|------------|
 | fullstack-webapp | qa-engineer |
 | api-designer | schema-validator, mock-tester, review-auditor |
@@ -94,20 +94,20 @@ Agent 툴로 실행자 역할 에이전트를 호출한다.
 | microservice-designer | architecture-reviewer |
 | performance-optimizer | profiler, benchmark-manager, perf-reviewer |
 
-### 5단계: 완료 보고
+### Step 5: Completion Report
 
-    [dev-flow 완료]
-    하네스: {선택된 하네스}
-    Phase 1 (설계): ✓
-    Phase 2 (구현): ✓ / 건너뜀
-    Phase 3 (검증): ✓
+    [dev-flow complete]
+    Harness: {selected harness}
+    Phase 1 (design): ✓
+    Phase 2 (implementation): ✓ / skipped
+    Phase 3 (verification): ✓
     TASK.md: temp/TASK.md
 
-## 에러 핸들링
+## Error Handling
 
-| 상황 | 처리 |
+| Situation | Handling |
 |------|------|
-| 키워드 매핑 불분명 | 사용자에게 태스크 유형 직접 선택 요청 |
-| 구현자 tier 없는 하네스 | Phase 2 자동 건너뜀, 사용자에게 안내 |
-| FRONTEND_PATH 미제공 | fullstack-webapp 선택 시에만 입력 요청 |
-| 설계자 에이전트 실패 | 1회 재시도 후 실패 시 수동 입력 요청 |
+| Ambiguous keyword mapping | Request user to directly select task type |
+| Harness without implementor tier | Automatically skip Phase 2, notify user |
+| FRONTEND_PATH not provided | Request input only when fullstack-webapp is selected |
+| Designer agent failure | Retry once, then request manual input on failure |

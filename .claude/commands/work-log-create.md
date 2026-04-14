@@ -1,88 +1,88 @@
 ---
 name: create-work-log
-description: 주차별 업무 계획 일지를 PRD·BACKLOG·이전 주차 일지를 수집해 자동 생성
+description: Auto-generates weekly work plan logs by collecting PRD, BACKLOG, and previous week's log
 allowed-tools: ["Read", "Glob", "Grep", "Bash", "Write"]
 model: sonnet
 ---
 
-# /create-work-log — 주차별 업무 계획 일지 생성
+# /create-work-log — Weekly Work Plan Log Generator
 
-## 역할 정의
+## Role Definition
 
-너는 주차 업무 계획을 작성하는 **계획 담당자**다.
-PRD·BACKLOG·직전 주차 일지를 읽고 이번 주에 진행할 업무를 판단해 `docs/work-logs/{파일명}.md` 를 생성한다.
+You are the **planner** responsible for writing weekly work plans.
+Read the PRD, BACKLOG, and previous week's log, determine the work to be carried out this week, and create `docs/work-logs/{filename}.md`.
 
-절대 금지:
-- 코드 파일 수정 (Edit 툴 사용 금지)
+Strictly prohibited:
+- Modifying code files (use of the Edit tool is forbidden)
 - git commit, git push
-- 업무일지 이외의 파일 Write
+- Writing files other than the work log
 
-허용:
-- Read, Glob, Grep (파일 탐색 및 읽기)
-- Bash (날짜 계산, git log 읽기 전용)
-- Write (업무일지 파일 생성만)
+Allowed:
+- Read, Glob, Grep (file search and reading)
+- Bash (date calculation, git log read-only)
+- Write (only for creating the work log file)
 
 ---
 
-## 실행 절차
+## Execution Procedure
 
-### 1. 인자 파싱
+### 1. Parse Arguments
 
-`$ARGUMENTS` 에서 다음 정보를 추출한다.
+Extract the following information from `$ARGUMENTS`.
 
-| 파라미터 | 기본값 | 설명 | 예시 |
-|----------|--------|------|------|
-| 주차번호 | 자동 계산 | `W{NN}` 형식 | `W14` |
-| 시작일 | 이번 주 월요일 | `YYMMDD` 형식 | `260330` |
-| 종료일 | 이번 주 금요일 | `YYMMDD` 형식 | `260403` |
+| Parameter | Default | Description | Example |
+|-----------|---------|-------------|---------|
+| Week number | auto-calculated | `W{NN}` format | `W14` |
+| Start date | This week's Monday | `YYMMDD` format | `260330` |
+| End date | This week's Friday | `YYMMDD` format | `260403` |
 
-인자가 없으면 현재 날짜 기준으로 자동 계산한다:
+If no arguments, auto-calculate based on the current date:
 
 ```bash
-# 이번 주 월요일 (YYMMDD)
+# This week's Monday (YYMMDD)
 date -d "last Monday" +%y%m%d 2>/dev/null || date -v-Mon +%y%m%d
 
-# 이번 주 금요일
+# This week's Friday
 date -d "next Friday" +%y%m%d 2>/dev/null || date -v+Fri +%y%m%d
 
-# 주차 번호 (ISO 주차)
+# Week number (ISO week)
 date +%V
 ```
 
-> **주의**: 월요일이 오늘이면 `last Monday` 대신 `date +%y%m%d` 사용.
-> 날짜 계산 결과를 사용자에게 확인용으로 출력한다.
+> **Note**: If today is Monday, use `date +%y%m%d` instead of `last Monday`.
+> Print the date calculation results for the user to confirm.
 
-생성할 파일명: `docs/work-logs/{시작일}-{종료일}-W{주차번호}.md`
+Output filename: `docs/work-logs/{start date}-{end date}-W{week number}.md`
 
 ---
 
-### 2. 컨텍스트 수집
+### 2. Collect Context
 
-다음 파일을 순서대로 읽어 이번 주 업무 결정에 필요한 정보를 수집한다.
+Read the following files in order to gather the information needed to determine this week's work.
 
-#### 2-1. PRD (필수)
+#### 2-1. PRD (required)
 
 ```
 docs/temp/local-PRD.md
 ```
 
-다음 정보를 추출한다:
-- 현재 진행 중인 Phase (P0/P1/P2/P3)
-- 해당 Phase의 미완료 기능 요구사항 (`FR-P{N}-NN`)
-- 각 FR의 완료 여부 (`[x]` / `[ ]`)
-- 예상 공수 및 BE/FE 담당
+Extract the following information:
+- Current phase in progress (P0/P1/P2/P3)
+- Incomplete feature requirements for that phase (`FR-P{N}-NN`)
+- Completion status of each FR (`[x]` / `[ ]`)
+- Estimated effort and BE/FE ownership
 
-#### 2-2. 직전 주차 일지 (필수)
+#### 2-2. Previous Week's Log (required)
 
 ```bash
-# 가장 최근 주차 파일 찾기
+# Find the most recent week's file
 ls -t docs/work-logs/[0-9]*.md | head -1
 ```
 
-다음 정보를 추출한다:
-- 미완료 항목 (`[ ]` 체크박스)
-- 다음 주로 이월 명시된 항목
-- 병목 요인(Blocker) 중 미해결 항목
+Extract the following information:
+- Incomplete items (`[ ]` checkboxes)
+- Items explicitly marked for carry-over to next week
+- Unresolved blockers
 
 #### 2-3. BACKLOG
 
@@ -90,126 +90,126 @@ ls -t docs/work-logs/[0-9]*.md | head -1
 docs/work-logs/BACKLOG.md
 ```
 
-다음 정보를 추출한다:
-- 단기 마일스톤 일정 계획 표 (이번 주 해당 항목)
-- 기술부채 중 이번 주 범위에 맞는 항목
+Extract the following information:
+- Short-term milestone schedule table (items applicable to this week)
+- Technical debt items that fit within this week's scope
 
-#### 2-4. 최근 커밋 히스토리 (보조)
+#### 2-4. Recent Commit History (supplementary)
 
 ```bash
 git log --oneline -10
 ```
 
-최근 완료된 작업 파악으로 중복 계획 방지.
+Review recently completed work to avoid duplicate planning.
 
 ---
 
-### 3. 업무 계획 판단
+### 3. Determine Work Plan
 
-수집한 정보를 바탕으로 이번 주 업무를 다음 기준으로 결정한다.
+Based on the collected information, decide this week's work using the following criteria.
 
-**우선순위 결정 기준**:
-1. **직전 주 미완료 이월 항목** — 가장 먼저 배치
-2. **현재 Phase의 미완료 FR** — PRD 순서대로
-3. **BACKLOG 단기 마일스톤에서 이번 주 해당 항목** — 일정 계획 표 참조
-4. **이번 주 하지 않아도 되는 것** — 다음 주차 이월 예정 항목 명시
+**Priority Determination Criteria**:
+1. **Previous week's incomplete carry-over items** — place first
+2. **Incomplete FRs for the current phase** — in PRD order
+3. **Items from BACKLOG short-term milestones applicable to this week** — refer to schedule table
+4. **Items not required this week** — explicitly list items planned for carry-over to next week
 
-**업무량 판단 기준**:
-- 이번 주 총 업무 = BE 7일 이내 + FE 7일 이내 (평일 5일 기준)
-- 각 FR의 예상 공수(PRD 기재값) 참조
-- 과부하 시 하위 우선순위 항목을 "이번 주 하지 않아도 되는 것"으로 이동
+**Workload Estimation Criteria**:
+- Total work this week = within BE 7 days + within FE 7 days (based on 5 weekdays)
+- Refer to estimated effort per FR (as stated in PRD)
+- If overloaded, move lower-priority items to "Not Required This Week"
 
 ---
 
-### 4. 업무일지 생성
+### 4. Generate Work Log
 
-`docs/work-logs/{파일명}.md` 를 Write 툴로 생성한다.
-`docs/work-logs/WORK-TEMPLATE.md` 구조를 그대로 따른다.
+Create `docs/work-logs/{filename}.md` using the Write tool.
+Follow the structure of `docs/work-logs/WORK-TEMPLATE.md` exactly.
 
-#### 파일 구조
+#### File Structure
 
 ```markdown
-# {시작일} - {종료일} (W{주차번호})
+# {start date} - {end date} (W{week number})
 
-> 이 파일의 범위: 이번 주 처리할 업무, 병목 요인(Blocker), 완료된 업무만 관리합니다.
-> 장기 예정 업무는 [`BACKLOG.md`](./BACKLOG.md), 임시 메모는 [`NOTES.md`](./NOTES.md)로 분리합니다.
+> Scope of this file: manages only this week's tasks, blockers, and completed work.
+> Long-term planned work goes in [`BACKLOG.md`](./BACKLOG.md); temporary notes go in [`NOTES.md`](./NOTES.md).
 >
-> **⚠️ 주의**: Day 1~5에는 **평일(월~금)만** 사용합니다. 토요일, 일요일, 공휴일은 업무 계획에 넣지 않습니다.
+> **⚠️ Note**: Days 1~5 are for **weekdays (Mon~Fri) only**. Do not include Saturday, Sunday, or holidays in the work plan.
 
 ---
 
-## ✅ 이번 주 처리할 업무
+## ✅ This Week's Tasks
 
-> **W{주차} 포지션**: {Phase 및 이번 주 목표 한 줄 요약}
+> **W{N} Position**: {one-line summary of this week's phase and goal}
 
-**[최우선 — 이월 항목 또는 긴급 항목]**
+**[Top Priority — Carried-over or Urgent Items]**
 
-- [ ] [BE/FE] **{FR-ID}** — {업무명}
-  - {세부 점검 항목}
+- [ ] [BE/FE] **{FR-ID}** — {task name}
+  - {detailed check items}
 
-**[이번 주 처리할 업무]**
+**[This Week's Tasks]**
 
-- [ ] [BE/FE] **{FR-ID}** — {업무명}
-  - {세부 점검 항목}
+- [ ] [BE/FE] **{FR-ID}** — {task name}
+  - {detailed check items}
 
-**[이번 주 하지 않아도 되는 것]**
+**[Not Required This Week]**
 
-> 이번 주 범위를 벗어나지만 추적이 필요한 항목.
+> Items outside this week's scope but worth tracking.
 
-- [ ] {항목} ← W{다음주차} 이월 (사유)
+- [ ] {item} ← Carried over to W{next week} (reason)
 
-**[추가로 진행할 업무]**
+**[Additional Tasks]**
 
-> 긴급 대응 또는 계획 조기 완료 시 진행할 항목.
+> Items to tackle if urgent response or early completion of planned tasks.
 
-**[작업 로그]**
+**[Work Log]**
 
-> 위 작업 계획과 별개로 실제 작업한 내용을 간략한 로그로 기록
-> 작업 계획 체크리스트와 이 기록을 바탕으로 완료된 업무 정리
-
----
-
-## ⏳ 병목 요인 (Blocker)
-
-- [ ] {블로커 항목} (by. 담당자)
-  - {원인/요건}
+> Log of actual work performed, separate from the work plan above
+> Use this log along with the work plan checklist to compile completed work
 
 ---
 
-## 🏁 완료된 업무
+## ⏳ Blockers
 
-> (주차 진행 중 — 완료 시 기록)
+- [ ] {blocker item} (by. assignee)
+  - {cause/requirements}
+
+---
+
+## 🏁 Completed Work
+
+> (In progress — to be filled upon completion)
 
 ```
 
-#### 작성 품질 기준
+#### Writing Quality Criteria
 
-- FR-ID는 PRD에서 그대로 참조 (`FR-P1-02` 등)
-- 업무 항목은 "무엇을" 수준으로 구체화 (모호한 "개선", "검토" 금지)
-- 직전 주차 이월 항목은 최우선 섹션에 배치
-- Blocker는 PRD·직전 일지에서 미해결인 것만 포함
-- 완료된 업무 섹션은 빈 상태로 시작 (주차 진행 중 채움)
+- FR-IDs are referenced directly from the PRD (e.g., `FR-P1-02`)
+- Task items are made specific at the "what" level (vague terms like "improve" or "review" are forbidden)
+- Previous week's carry-over items are placed in the top-priority section
+- Blockers include only unresolved items from PRD and the previous week's log
+- The completed work section starts empty (to be filled as the week progresses)
 
 ---
 
-### 5. `docs/work-logs/README.md` 갱신
+### 5. Update README.md
 
-생성한 파일을 README 인덱스에 추가한다.
+Add the newly created file to the README index.
 
 ```bash
-# README 현재 내용 확인
+# Check current README content
 cat docs/work-logs/README.md
 ```
 
-README에 새 주차 파일 링크를 추가한다 (기존 형식 유지).
+Add a link to the new week's file in the README (preserve existing format).
 
 ---
 
-### 6. 완료 보고
+### 6. Completion Report
 
 ```
-업무일지 생성 완료: docs/work-logs/{파일명}.md
-주차: W{주차번호} ({시작일} ~ {종료일})
-수집 소스: PRD(미완료 FR {N}건) + 직전 주차 이월({N}건) + BACKLOG
-업무 항목: 최우선 {N}개 / 일반 {N}개 / 이월 예정 {N}개
+Work log generated: docs/work-logs/{filename}.md
+Week: W{week number} ({start date} ~ {end date})
+Collected from: PRD ({N} incomplete FRs) + previous week carry-over ({N} items) + BACKLOG
+Task items: top priority {N} / general {N} / planned carry-over {N}
 ```

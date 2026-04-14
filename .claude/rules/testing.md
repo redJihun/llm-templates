@@ -1,85 +1,165 @@
-# 테스트 규칙
+# Testing Rules
 
-## 테스트 구조
+## Test Structure
 
 ```
 tests/
-├── conftest.py              # 공통 fixtures
-├── unit/                    # 단위 테스트 (외부 의존성 없음)
-│   ├── test_models.py
-│   └── test_utils.py
-├── integration/             # 통합 테스트 (DB, API 포함)
-│   ├── test_api_auth.py
-│   └── test_api_crud.py
-└── e2e/                     # E2E 테스트 (선택)
+  conftest.py           # Global fixtures (db_session, app, client)
+  test_*.py            # Test files (per module)
+  integration/
+    test_*.py          # Integration tests (real DB, API)
+  unit/
+    test_*.py          # Unit tests (mocking)
 ```
 
-## 네이밍 규칙
+## AAA Pattern (Arrange-Act-Assert)
 
 ```python
-# 파일명: test_{모듈명}.py
-# 함수명: test_{동작}_{조건}_{기대결과}
+def test_get_handler_info_success(db_session):
+    # Arrange: Set up test data
+    handler = HandlerInfo(
+        id="HDL001",
+        name="Handler 1",
+        status="active"
+    )
+    db_session.add(handler)
+    db_session.commit()
 
-def test_create_user_with_valid_data_returns_201():
-    ...
+    # Act: Execute function
+    result = get_handler_info(db_session, "HDL001")
 
-def test_create_user_with_duplicate_email_raises_400():
-    ...
-
-def test_get_users_without_auth_returns_401():
-    ...
+    # Assert: Verify result
+    assert result.id == "HDL001"
+    assert result.name == "Handler 1"
 ```
 
-## 테스트 작성 원칙
+## Test Isolation (TDD Principles)
 
-### AAA 패턴 (Arrange-Act-Assert)
+### Database isolation
+```python
+@pytest.fixture
+def db_session():
+    """Independent DB session for each test"""
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    yield session
+
+    session.close()
+```
+
+### No cross-test interference
+- Each test uses independent data
+- No shared resources (files, environment variables, etc.)
+- Tests can run in any order
+
+## Mock Usage Criteria
+
+### Use Mock (unit tests)
+```python
+from unittest.mock import patch
+
+def test_send_notification():
+    # Use Mock instead of calling external API
+    with patch('requests.post') as mock_post:
+        mock_post.return_value.status_code = 200
+
+        result = send_notification("test@example.com")
+
+        assert result == True
+        mock_post.assert_called_once()
+```
+
+### Use real DB (integration tests)
+```python
+def test_create_handler_integration(db_session):
+    # Save to real DB and query
+    handler = create_handler_info(db_session, "HDL001", "Handler 1")
+
+    result = session.query(HandlerInfo).filter_by(id="HDL001").first()
+    assert result.id == "HDL001"
+```
+
+## Test Naming Convention
 
 ```python
-def test_calculate_yield_rate():
-    # Arrange — 테스트 데이터 준비
-    success_count = 95
-    total_count = 100
+def test_{function_name}_{scenario}():
+    """Test a specific scenario of a specific function"""
+    pass
 
-    # Act — 테스트 대상 실행
-    result = calculate_yield_rate(success_count, total_count)
+# Examples
+def test_get_handler_info_success():  # ✓
+def test_get_handler_info_not_found():  # ✓
+def test_create_session_with_invalid_data():  # ✓
 
-    # Assert — 결과 검증
-    assert result == 95.0
+def test_handler():  # ✗ (too vague)
+def test_works():  # ✗ (what is being tested?)
 ```
 
-### 테스트 격리
+## Coverage Criteria
 
-- 각 테스트는 독립적으로 실행 가능해야 함
-- 테스트 간 상태 공유 금지 — fixture로 매번 새로 생성
-- DB 테스트는 트랜잭션 롤백 또는 테스트 DB 사용
-- 외부 API 호출은 mock 처리 (단, DB는 실제 연결 권장)
+| Type | Criteria | Target |
+|------|----------|--------|
+| Business logic | 80% or above | Required |
+| API routers | 70% or above | Recommended |
+| Utilities | 60% or above | Recommended |
+| Schema validation | 90% or above | Recommended |
 
-### 커버리지 기준
-
-- 새 기능 추가 시 해당 기능의 테스트 필수
-- 버그 수정 시 해당 버그를 재현하는 테스트 추가
-- 핵심 비즈니스 로직: 80%+ 커버리지 목표
-- 유틸리티 함수: 엣지 케이스 포함 테스트
-
-## 검증 명령
-
+### Check coverage
 ```bash
-# 단일 파일 테스트
-pytest tests/unit/test_models.py -v
-
-# 특정 테스트 함수
-pytest tests/unit/test_models.py::test_create_user -v
-
-# 전체 테스트
-pytest tests/ -v
-
-# 커버리지 포함
-pytest tests/ --cov=src/ --cov-report=term-missing
+uv run pytest --cov=issuance_be_fastapi tests/
 ```
 
-## 금지 사항
+## Running Tests
 
-- `assert True` / `assert not False` 같은 무의미한 assertion 금지
-- `time.sleep()` 으로 비동기 대기 금지 — 적절한 대기 메커니즘 사용
-- 프로덕션 DB에 직접 연결하는 테스트 금지
-- 테스트에서 `print()` 로 결과 확인 금지 → assert 사용
+### All tests
+```bash
+uv run pytest tests/ -v
+```
+
+### Specific test file
+```bash
+uv run pytest tests/test_handler.py -v
+```
+
+### Specific test function
+```bash
+uv run pytest tests/test_handler.py::test_get_handler_info_success -v
+```
+
+### Failed tests only
+```bash
+uv run pytest tests/ -v --lf
+```
+
+## Fixture Writing Criteria
+
+### 1. Fixtures needed by all tests → conftest.py
+```python
+@pytest.fixture
+def db_session():
+    """Global DB session fixture"""
+    pass
+
+@pytest.fixture
+def client(db_session):
+    """Global test client"""
+    pass
+```
+
+### 2. Fixtures needed by specific tests only → respective file
+```python
+@pytest.fixture
+def handler_data():
+    """Used only in test_handler.py"""
+    return {"id": "HDL001", "name": "Handler 1"}
+```
+
+## Important Notes
+
+- Tests must be committed together with production code
+- Red flag: never merge code without passing tests
+- When modifying legacy code, write tests first (reproduce the defect)
+- Remove temporary tests (.skip) before committing

@@ -1,72 +1,86 @@
-# 에러 처리 규칙
+# Error Handling Rules
 
-## 기본 원칙
+## Logging Level Criteria
 
-- **시스템 경계에서만 검증**: 외부 입력(사용자, API, 파일) 진입 시점에 검증
-- **내부 코드는 신뢰**: 프레임워크 보장/내부 함수 간 호출에 방어적 코딩 불필요
-- **에러는 빨리 실패**: 문제 발견 즉시 예외 발생 (silent failure 금지)
-- **구체적 예외**: `except Exception` 보다 `except ValueError` 사용
+| Level | When to Use | Example |
+|-------|------------|---------|
+| DEBUG | HTTP request/response | `logger.debug(f"GET /handler/{id}")` |
+| INFO | Task completion | `logger.info("Session created: ssi_20250325")` |
+| WARNING | Expected failure, partial success | `logger.warning("Handler offline, retrying...")` |
+| ERROR | Unexpected failure | `logger.error(f"DB connection failed: {e}")` |
 
-## 패턴: API 라우터 에러 처리
+## CRUD ↔ Router Error Boundary
+
+### CRUD Functions (domain/)
+- **Exception propagation**: Propagate SQLAlchemy errors as-is
+- **Validation errors**: Raise `ValueError`, `KeyError`
+- **Logging**: Use only DEBUG/WARNING when needed
 
 ```python
-from fastapi import HTTPException
-
-@router.get("/{uid}")
-def get_item(uid: str, db: Session = Depends(get_db)):
-    item = crud.get_item(db, uid)
-    if not item:
-        raise HTTPException(status_code=404, detail=f"Item not found: {uid}")
-    return item
+def get_handler_info(session: Session, handler_id: str) -> HandlerInfo:
+    result = session.query(HandlerInfo).filter(...).first()
+    if not result:
+        raise ValueError(f"Handler {handler_id} not found")
+    return result
 ```
 
-## 패턴: CRUD 레이어
+### Router Functions (routers/)
+- **Wrap CRUD calls with try-except**
+- **Unified response**: `{"result": "OK", "data": ...}` or `{"result": "ERROR", "error": ...}`
+- **Logging**: Record at INFO/WARNING/ERROR levels
 
 ```python
-# CRUD는 None 반환 — HTTP 에러는 라우터에서 처리
-def get_item(db: Session, uid: str) -> Model | None:
-    return db.query(Model).filter(Model.uid == uid).first()
-
-# 생성/수정은 예외 없이 결과 반환
-def create_item(db: Session, data: CreateSchema) -> Model:
-    item = Model(**data.dict())
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
+@router.get("/handler/{id}")
+async def get_handler(id: str, db: Session = Depends(get_db)):
+    try:
+        handler = get_handler_info(db, id)
+        logger.info(f"Handler retrieved: {id}")
+        return {"result": "OK", "data": handler}
+    except ValueError as e:
+        logger.warning(f"Invalid handler: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Internal error")
 ```
 
-## 로깅 레벨 기준
+## HTTP Status Codes
 
-| 레벨 | 사용 시점 |
-|------|----------|
-| `DEBUG` | 요청 파라미터, 쿼리 결과 수 등 개발 정보 |
-| `INFO` | 정상 완료된 주요 작업 (N건 조회, 생성 완료) |
-| `WARNING` | 클라이언트 에러 (404, 400), 비정상 입력 |
-| `ERROR` | 서버 에러 (500), 예상치 못한 예외 |
-| `CRITICAL` | 시스템 중단 수준 (DB 연결 실패, 설정 누락) |
+| Situation | Code | Example |
+|-----------|------|---------|
+| Success | 200 | Data returned successfully |
+| Invalid input | 400 | Required field missing |
+| Unauthenticated | 401 | No token |
+| Unauthorized | 403 | Insufficient permissions |
+| Resource not found | 404 | Handler ID not found |
+| Server error | 500 | Unexpected error |
 
-## 금지 사항
+## Response Format (Consistency)
 
 ```python
-# 1. bare except 금지
+# Success
+{"result": "OK", "data": {...}}
+
+# Error
+{"result": "ERROR", "error": "message"}
+
+# Never use "SUCCESS" — always "OK"
+```
+
+## Database Error Handling
+
+```python
+from sqlalchemy.exc import IntegrityError, OperationalError
+
 try:
-    ...
-except:  # NEVER — BaseException도 잡힘 (KeyboardInterrupt 등)
-    pass
-
-# 2. 예외 삼키기 금지
-try:
-    ...
-except ValueError:
-    pass  # NEVER — 최소 로깅은 해야 함
-
-# 3. 과도한 try-except 금지
-try:  # NEVER — 불필요한 감싸기
-    x = 1 + 2
-except Exception:
-    ...
-
-# 4. HTTPException을 CRUD에서 발생시키기 금지
-# CRUD는 웹 프레임워크에 의존하지 않아야 함
+    session.add(new_record)
+    session.commit()
+except IntegrityError:
+    session.rollback()
+    logger.warning(f"Duplicate key or constraint violation")
+    raise HTTPException(status_code=400, detail="Data conflict")
+except OperationalError:
+    session.rollback()
+    logger.error(f"Database connection lost")
+    raise HTTPException(status_code=503, detail="Service unavailable")
 ```

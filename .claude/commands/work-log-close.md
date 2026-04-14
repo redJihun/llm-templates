@@ -1,40 +1,40 @@
 ---
 name: close-work-log
-description: 주차 업무일지의 [x] 항목과 작업 로그를 읽어 "완료된 업무" 섹션을 자동 채움
+description: Reads [x] items and work log from the weekly work log and auto-fills the 'Completed Work' section
 allowed-tools: ["Read", "Glob", "Bash", "Edit"]
 model: sonnet
 ---
 
-# /close-work-log — 주차 업무일지 완료 섹션 채우기
+# /close-work-log — Weekly Work Log Completion Section Filler
 
-## 역할 정의
+## Role Definition
 
-너는 주차 업무일지를 정리하는 **정리 담당자**다.
-대상 주차 파일에서 `[x]` 체크된 항목과 `[작업 로그]` 섹션을 읽어 `## 🏁 완료된 업무` 섹션을 자동으로 작성한다.
+You are the **organizer** responsible for closing out a weekly work log.
+Read the `[x]` checked items and the `[Work Log]` section from the target week's file and automatically write the `## 🏁 Completed Work` section.
 
-절대 금지:
-- 코드 파일 수정 (다른 파일 Edit 금지)
+Strictly prohibited:
+- Modifying code files (editing other files is forbidden)
 - git commit, git push
-- `## 🏁 완료된 업무` 섹션 이외의 파일 부분 수정
+- Modifying any part of the file other than the `## 🏁 Completed Work` section
 
-허용:
-- Read (업무일지 파일 읽기)
-- Glob, Bash (파일 탐색)
-- Edit (`## 🏁 완료된 업무` 섹션만 수정)
+Allowed:
+- Read (reading work log files)
+- Glob, Bash (file search)
+- Edit (modifying only the `## 🏁 Completed Work` section)
 
 ---
 
-## 실행 절차
+## Execution Procedure
 
-### 1. 인자 파싱
+### 1. Parse Arguments
 
-`$ARGUMENTS` 에서 파일 경로를 추출한다.
+Extract the file path from `$ARGUMENTS`.
 
-| 파라미터 | 필수 | 설명 | 예시 |
-|----------|------|------|------|
-| `{파일경로}` | - | 대상 주차 일지 경로 | `docs/work-logs/260330-260403-W14.md` |
+| Parameter | Required | Description | Example |
+|-----------|----------|-------------|---------|
+| `{file path}` | - | Path to the target week's log | `docs/work-logs/260330-260403-W14.md` |
 
-**인자가 없는 경우**: 가장 최신 주차 파일을 자동 선택:
+**When no argument provided**: automatically select the most recent week's file:
 
 ```bash
 ls -t docs/work-logs/[0-9]*.md | head -1
@@ -42,131 +42,131 @@ ls -t docs/work-logs/[0-9]*.md | head -1
 
 ---
 
-### 2. 파일 읽기 및 항목 분류
+### 2. Read File and Classify Items
 
-Read로 대상 파일 전체를 읽어 다음을 분류한다:
+Read the entire target file with Read and classify the following:
 
-1. **`[x]` 체크된 항목** → 완료 항목 (섹션별 그룹 정보 유지)
-2. **`[ ]` 체크 안 된 항목** → 미완료/이월 항목 (다음 주차 이월 명시 포함)
-3. **`[작업 로그]` 섹션의 `-` 줄 항목** → 실제 작업 내역
-4. **`~~...~~` 취소선 항목** → 취소/결정사항 (별도 처리)
-
----
-
-### 3. 완료된 업무 내용 작성
-
-다음 규칙으로 섹션 내용을 생성한다:
-
-#### 규칙 1: 상위 그룹 유지
-원본 파일의 `**[최우선 ...]**`, `**[이번 주 처리할 업무]**` 등 상위 그룹 구조를 유지하면서 `[x]` 항목만 그룹화한다.
-
-#### 규칙 2: 세부 내용 포함
-각 완료 항목에는 원본의 `-` 하위 리스트(세부 내용, 기술 상세 등) 그대로 포함한다.
-
-**예:**
-```
-- [BE+FE] **FR-P1-02** — PGM(프로젝트) 생성/수정/삭제 UI 완료
-  - BE: POST /projects/ 요청 스키마 ↔ FE 폼 필드 매핑 확인
-  - BE: DELETE /projects/{id} → WorkInfo 참조 시 409 차단 적용
-  - FE: PGM 등록/수정/삭제 모달 및 다이얼로그 구현
-  - FE: 목록/상세 화면에 등록·수정·삭제 버튼 추가
-```
-
-#### 규칙 3: 작업 로그 병합
-`[작업 로그]` 섹션의 줄 항목을 다음 기준으로 처리:
-- 관련된 계획 항목이 있으면 → 그 항목의 세부 내용 아래에 병합
-- 관련 항목 없으면 → **[버그 수정 및 개선]** 또는 **[문서 & 기타]** 새 그룹으로 분류
-
-**예:**
-```
-**[버그 수정 및 개선]**
-
-- 프로파일 수정 모달 — name 미반영 + description 캐싱 버그 수정 (2026-04-02)
-- 사용자 수정/삭제 오작동 버그 수정 (2026-04-01)
-```
-
-#### 규칙 4: 미완료/이월 항목
-`[ ]` 체크 안 된 항목:
-- `⚠️` 표시 후 **[진행 중 / 미완료]** 그룹에 배치
-- "W{다음주차}로 이월" 명시된 항목은 **[W{N+1}로 이월]** 별도 그룹에 배치
-
-**예:**
-```
-**[진행 중 / 미완료]**
-
-- ⚠️ [FE] PGM 수정 후 페이지 로드 오류 (진행 중)
-  - 매핑된 변수 오류 확인 필요
-
-**[W15로 이월]**
-
-- FR-P1-06 KMS → 자체 BE auth 전환 (FE 5~7일 대규모 작업)
-```
-
-#### 규칙 5: 취소선 항목
-`~~...~~` 취소선 항목과 그 아래 `**(결정)**` 메모는 완료된 업무의 마지막에 병합하여 기록한다.
+1. **`[x]` checked items** → completed items (preserve section group information)
+2. **`[ ]` unchecked items** → incomplete/carried-over items (include explicit carry-over to next week)
+3. **`-` line items in the `[Work Log]` section** → actual work records
+4. **`~~...~~` strikethrough items** → cancelled/decided items (handle separately)
 
 ---
 
-### 4. 섹션 교체
+### 3. Write Completed Work Content
 
-Edit 툴로 `## 🏁 완료된 업무` 섹션의 기존 placeholder를 작성한 내용으로 교체한다.
+Generate the section content according to the following rules:
 
-**교체 대상:**
+#### Rule 1: Preserve Top-Level Groups
+Preserve the top-level group structure from the original file (`**[Top Priority ...]**`, `**[This Week's Tasks]**`, etc.) and group only the `[x]` items within them.
+
+#### Rule 2: Include Sub-Details
+For each completed item, include the original `-` sub-list items (sub-details, technical details, etc.) exactly as they appear.
+
+**Example:**
+```
+- [BE+FE] **FR-P1-02** — PGM (project) create/edit/delete UI complete
+  - BE: POST /projects/ request schema ↔ FE form field mapping confirmed
+  - BE: DELETE /projects/{id} → 409 block applied when WorkInfo is referenced
+  - FE: PGM register/edit/delete modal and dialog implemented
+  - FE: Register, edit, delete buttons added to list/detail screens
+```
+
+#### Rule 3: Merge Work Log
+Process the line items from the `[Work Log]` section as follows:
+- If a related planned item exists → merge under that item's sub-details
+- If no related item exists → classify under a new group **[Bug Fixes & Improvements]** or **[Docs & Misc]**
+
+**Example:**
+```
+**[Bug Fixes & Improvements]**
+
+- Profile edit modal — name not reflected + description caching bug fixed (2026-04-02)
+- User edit/delete malfunction bug fixed (2026-04-01)
+```
+
+#### Rule 4: Incomplete/Carried-Over Items
+`[ ]` unchecked items:
+- Mark with `⚠️` and place in the **[In Progress / Incomplete]** group
+- Items explicitly marked "carry over to W{next week}" go in a separate **[Carried over to W{N+1}]** group
+
+**Example:**
+```
+**[In Progress / Incomplete]**
+
+- ⚠️ [FE] Page load error after PGM edit (in progress)
+  - Mapped variable error needs investigation
+
+**[Carried over to W15]**
+
+- FR-P1-06 KMS → in-house BE auth migration (FE 5~7 day large-scale task)
+```
+
+#### Rule 5: Strikethrough Items
+`~~...~~` strikethrough items and their `**(Decision)**` notes below them are merged and recorded at the end of the completed work section.
+
+---
+
+### 4. Replace Section
+
+Use the Edit tool to replace the existing placeholder in the `## 🏁 Completed Work` section with the content written in step 3.
+
+**Target to replace:**
 ```
 old_string:
-> (주차 진행 중 — 완료 시 기록)
+> (In progress — to be filled upon completion)
 
 new_string:
-{3단계에서 작성한 완료 업무 내용}
+{completed work content written in step 3}
 ```
 
 ---
 
-## 완료 보고
+## Completion Report
 
 ```
-완료된 업무 섹션 갱신: docs/work-logs/{파일명}.md
-완료 항목: {N}개
-미완료/이월: {N}개
-작업 로그 반영: {N}건
+Completed work section updated: docs/work-logs/{filename}.md
+Completed items: {N}
+Incomplete/carried over: {N}
+Work log reflected: {N} entries
 ```
 
 ---
 
-## 최종 예상 결과
+## Expected Final Result
 
-`/close-work-log` 또는 `/close-work-log docs/work-logs/260330-260403-W14.md` 실행 시:
-- 대상 주차 파일의 `## 🏁 완료된 업무` 섹션이 자동으로 채워진다
-- `[x]` 항목은 원본 그룹을 유지하면서 완료 형태로 정리된다
-- 작업 로그 항목은 관련 그룹에 병합된다
-- 미완료/이월 항목도 섹션 하단에 ⚠️ 표시되어 기록된다
+When `/close-work-log` or `/close-work-log docs/work-logs/260330-260403-W14.md` is run:
+- The `## 🏁 Completed Work` section of the target week's file is automatically filled in
+- `[x]` items are organized in completed form while preserving their original groups
+- Work log items are merged into related groups
+- Incomplete/carried-over items are also recorded at the bottom of the section with ⚠️ markers
 
-**예시 결과 구조:**
+**Example result structure:**
 ```
-## 🏁 완료된 업무
+## 🏁 Completed Work
 
-**[W13 이월 항목]**
+**[Carried over from W13]**
 
-- [FE] **유저 생성 중복확인 로직** — API 연결 및 검증 완료
-  - POST /auth/users/ 409 응답 파싱
-  - FE 중복 안내 메시지 연동 완료 (2026-04-01)
+- [FE] **User creation duplicate-check logic** — API connection and validation complete
+  - POST /auth/users/ 409 response parsing
+  - FE duplicate notification message integration complete (2026-04-01)
 
-**[P1 주요 기능]**
+**[P1 Key Features]**
 
-- [BE+FE] **FR-P1-02** — PGM 생성/수정/삭제 UI 완료
-  - BE: POST /projects/ 요청 스키마 ↔ FE 폼 필드 매핑 확인
+- [BE+FE] **FR-P1-02** — PGM create/edit/delete UI complete
+  - BE: POST /projects/ request schema ↔ FE form field mapping confirmed
   - ...
 
-**[버그 수정 및 개선]**
+**[Bug Fixes & Improvements]**
 
-- 프로파일 수정 모달 버그 수정 (2026-04-02)
+- Profile edit modal bug fixed (2026-04-02)
 - ...
 
-**[진행 중 / 미완료]**
+**[In Progress / Incomplete]**
 
-- ⚠️ [FE] PGM 수정 후 페이지 로드 오류 (진행 중)
+- ⚠️ [FE] Page load error after PGM edit (in progress)
 
-**[W15로 이월]**
+**[Carried over to W15]**
 
-- FR-P1-06 KMS → 자체 BE auth 전환
+- FR-P1-06 KMS → in-house BE auth migration
 ```

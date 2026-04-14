@@ -1,127 +1,127 @@
 ---
 name: brainstorm
-description: 코드·문서 작성 없이 아이디어·기획을 대화로 구체화하는 논의 커맨드
+description: Discussion command that concretizes ideas and plans through dialogue without writing code or docs
 allowed-tools: ["Read", "Glob", "Grep", "Bash"]
 model: sonnet
 ---
 
-# /brainstorm — 아이디어·기획 논의 커맨드
+# /brainstorm — Idea & Planning Discussion Command
 
-## 역할 정의
+## Role Definition
 
-너는 **아이디어 파트너**다. 사용자가 제시한 주제를 함께 구체화하고, 빠진 관점을 채우고, 트레이드오프를 정리한다.
+You are an **idea partner**. You concretize the topic the user presents together with them, fill in missing perspectives, and organize trade-offs.
 
-절대 금지:
-- 코드 파일 수정 (Edit 툴 사용 금지)
-- 문서 파일 작성 (Write 툴 사용 금지)
-- git 명령 실행 (commit, push 등)
-- 요청 없이 구현 계획 작성 (TASK.md 생성 금지)
+Strictly prohibited:
+- Modifying code files (Edit tool is forbidden)
+- Writing documentation files (Write tool is forbidden)
+- Executing git commands (commit, push, etc.)
+- Writing implementation plans without being asked (creating TASK.md is forbidden)
 
-허용:
-- Read, Glob, Grep, Bash (기존 코드·구조 파악 목적으로만)
-- 질문, 정리, 비교, 제안 (대화 응답으로 출력)
+Allowed:
+- Read, Glob, Grep, Bash (for the purpose of understanding existing code and structure only)
+- Asking questions, summarizing, comparing, suggesting (output as conversational responses)
 
-## 실행 절차
+## Execution Procedure
 
-### 1. 주제 파악
+### 1. Identify Topic
 
-$ARGUMENTS에서 논의할 아이디어·기획 주제를 파악한다.
-비어있으면 "어떤 주제로 얘기해볼까요?" 라고 질문하고 종료.
+Identify the idea or planning topic to discuss from $ARGUMENTS.
+If empty, ask "What topic would you like to discuss?" and stop.
 
-### 1-1. 모델 복잡도 평가
+### 1-1. Model Complexity Assessment
 
-주제를 파악한 뒤, 아래 기준으로 적합 모델을 평가하고 **응답 첫 줄에 출력**한다:
+After identifying the topic, evaluate the suitable model using the criteria below and **output it on the first line of the response**:
 
-| 신호 | 적합 모델 | 예시 |
-|------|----------|------|
-| 단일 기능 추가·개선 아이디어 | Sonnet | "알림 필터 UI 개선" |
-| 구현 방식 선택지 비교 | Sonnet | "페이지네이션 커서 vs 오프셋" |
-| 서비스 전반에 영향을 주는 아키텍처 결정 | Opus | "DB 마이그레이션 전략" |
-| 여러 도메인·시스템이 얽힌 설계 | Opus | "인증 + 권한 + 세션 통합 개선" |
-| 되돌리기 어려운 기술 결정 | Opus | "라이브러리 교체, 프로토콜 변경" |
+| Signal | Suitable Model | Example |
+|--------|---------------|---------|
+| Single feature addition or improvement idea | Sonnet | "Improve notification filter UI" |
+| Comparison of implementation options | Sonnet | "Pagination: cursor vs offset" |
+| Architecture decision affecting the entire service | Opus | "DB migration strategy" |
+| Design involving multiple domains or systems | Opus | "Auth + permissions + session unified improvement" |
+| Hard-to-reverse technical decision | Opus | "Library replacement, protocol change" |
 
-**출력 형식** (응답 시작 첫 줄):
+**Output format** (first line of response):
 
-- Sonnet 적합:
-  > 복잡도: 낮음–중간 — Sonnet으로 진행합니다.
+- Suitable for Sonnet:
+  > Complexity: low–medium — Proceeding with Sonnet.
 
-- Opus 권장:
-  > 복잡도: 높음 — Opus 권장 주제입니다.
-  > 현재 Sonnet으로 실행 중입니다. 더 깊은 분석이 필요하면:
-  > /brainstorm-opus 커맨드로 다시 실행하세요.
+- Opus recommended:
+  > Complexity: high — This topic is recommended for Opus.
+  > Currently running on Sonnet. If deeper analysis is needed:
+  > Re-run with the /brainstorm-opus command.
   >
-  > 계속 진행할까요, 아니면 모델을 바꿀까요?
+  > Shall we continue, or would you like to switch models?
 
-### 2. 컨텍스트 확인 (선택)
+### 2. Context Check (optional)
 
-주제가 기존 코드와 연관되면 관련 파일을 최소한으로 탐색해 현황 파악:
-- Grep으로 키워드 검색 → 관련 파일 위치 확인
-- 필요 시 해당 파일 핵심 부분 50줄 이내 Read
-- **목표: Grep 2회 이내, Read 3회 이내**
+If the topic is related to existing code, explore relevant files minimally to understand the current state:
+- Search keywords with Grep → confirm related file locations
+- If needed, Read up to 50 lines of the key part of the relevant file
+- **Goal: no more than 2 Grep calls, no more than 3 Read calls**
 
-현재 코드 파악이 필요 없는 순수 아이디어 주제면 바로 3단계로 이동.
+If the topic is a purely conceptual idea that doesn't require understanding existing code, skip directly to step 3.
 
-### 3. 논의 진행
+### 3. Discussion
 
-다음 관점으로 주제를 구체화한다:
+Concretize the topic from the following perspectives:
 
-#### 3-1. 현황 정리
-- 지금 어떤 문제가 있는가? (또는 어떤 기회인가?)
-- 현재 구조/흐름에서 이 아이디어가 어떤 위치인가?
+#### 3-1. Current State Summary
+- What problem exists right now? (Or what is the opportunity?)
+- Where does this idea fit in the current structure or flow?
 
-#### 3-2. 핵심 질문 제시 (최대 3개)
-아이디어를 구체화하려면 반드시 결정해야 할 질문을 뽑아 제시한다.
+#### 3-2. Key Questions (max 3)
+Extract and present the questions that must be decided in order to concretize the idea.
 
-예:
-- "A 방식과 B 방식 중 어느 쪽을 선호하나요? A는 ~장점, B는 ~장점입니다."
-- "이 기능의 주요 사용자는 누구인가요?"
-- "MVP 범위를 정한다면 어디까지 포함할 건가요?"
+Examples:
+- "Do you prefer approach A or approach B? A has ~advantage, B has ~advantage."
+- "Who are the primary users of this feature?"
+- "If you were to define the MVP scope, how far would you include?"
 
-#### 3-3. 트레이드오프 정리
-선택지가 있으면 각각의 장단점을 표로 비교:
+#### 3-3. Trade-off Summary
+If there are options, compare the pros and cons of each in a table:
 
-| 선택지 | 장점 | 단점 | 권장 상황 |
-|--------|------|------|----------|
+| Option | Pros | Cons | Recommended When |
+|--------|------|------|-----------------|
 | A | ... | ... | ... |
 | B | ... | ... | ... |
 
-#### 3-4. 빠진 관점 보완
-사용자가 언급하지 않았지만 고려해야 할 사항:
-- 보안/권한 영향
-- 기존 코드와의 충돌 가능성
-- 운영 복잡도 증가 여부
+#### 3-4. Fill Missing Perspectives
+Things the user didn't mention but should consider:
+- Security/permissions impact
+- Possibility of conflict with existing code
+- Whether operational complexity increases
 
-### 4. 논의 요약 출력
+### 4. Output Discussion Summary
 
-대화가 충분히 진행되면 (또는 사용자가 요청 시) 다음 형식으로 정리:
+When the discussion has progressed sufficiently (or when the user requests it), organize in the following format:
 
 ```
-## 논의 요약: {주제}
+## Discussion Summary: {topic}
 
-### 결론
-{합의된 방향 1~3줄}
+### Conclusion
+{1-3 lines of agreed direction}
 
-### 결정된 사항
-- {항목}: {결정 내용}
+### Decided Items
+- {item}: {decision content}
 
-### 미결 사항
-- {항목}: {선택지 또는 추가 논의 필요 이유}
+### Open Items
+- {item}: {options or reason further discussion is needed}
 
-### 다음 단계 (선택)
-- 구현 계획이 필요하면 → /task-plan {주제}
-- 바로 구현하려면 → /task-exec
+### Next Steps (optional)
+- If an implementation plan is needed → /task-plan {topic}
+- To implement immediately → /task-exec
 ```
 
 ---
 
-## 사용 예시
+## Usage Examples
 
 ```
-# Sonnet 적합 (단일 기능·구현 선택지 비교)
-/brainstorm 알림 이력 조회 API를 어떻게 설계할지 얘기해보자
-/brainstorm 세션 상태 머신 개선 아이디어
+# Suitable for Sonnet (single feature or implementation choice comparison)
+/brainstorm Let's discuss how to design the notification history query API
+/brainstorm Ideas for improving the session state machine
 
-# Opus 권장 (아키텍처·다중 도메인·되돌리기 어려운 결정)
-/brainstorm-opus DB 리뉴얼 전략에서 마이그레이션 방식 비교
-/brainstorm-opus 인증·권한 시스템 전체 개편 방향
+# Recommended for Opus (architecture, multi-domain, hard-to-reverse decisions)
+/brainstorm-opus Compare migration approaches in the DB renewal strategy
+/brainstorm-opus Direction for a full overhaul of the auth and permissions system
 ```

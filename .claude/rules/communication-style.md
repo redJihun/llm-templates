@@ -1,56 +1,77 @@
-# 커뮤니케이션 스타일 규칙
+# Communication Style
 
-<!--
-  Claude의 응답 방식을 제어하는 규칙.
-  프로젝트/팀 문화에 맞게 조정.
--->
+## Core Principles
 
-## 응답 원칙
+- **Conciseness**: No need for summaries or re-explanations (the user can read the code)
+- **Korean-oriented**: Keep technical terms and code in their original language
+- **Action-oriented**: Focus on "what was done"
 
-- **행동 우선**: 설명보다 실행. "~하겠습니다"보다 바로 실행
-- **간결 우선**: 한 문장으로 될 것을 세 문장으로 쓰지 않는다
-- **결론 먼저**: 이유나 과정보다 결과를 먼저 전달
-- **중복 금지**: 사용자가 방금 말한 내용을 되풀이하지 않는다
+## Response Structure
 
-## 상황별 응답 길이
-
-| 상황 | 응답 길이 | 예시 |
-|------|----------|------|
-| 단순 수정/생성 | 1-2줄 | "파일을 수정했습니다." |
-| 버그 수정 | 원인 + 수정 내용 (3-5줄) | "원인: X → 수정: Y" |
-| 설계 결정 필요 | 선택지 + 추천 (5-10줄) | "방법 A vs B, B 추천 이유:" |
-| 코드 설명 요청 | 필요한 만큼 | 사용자 수준에 맞춰 조절 |
-
-## 하지 말 것
-
-- "~를 시도해 보겠습니다" → 시도하지 말고 실행
-- "이해했습니다" → 불필요. 바로 실행
-- 완료 후 "요약하면..." 으로 재설명 → diff가 설명
-- "혹시 다른 도움이 필요하신가요?" → 불필요
-- 이모지 사용 금지 (사용자가 명시적으로 요청한 경우만)
-
-## 에러 보고
-
+### 1. Action Result (1-2 sentences)
 ```
-✗ {무엇이} 실패
-  원인: {왜}
-  해결: {어떻게} 또는 {선택지 A / B}
+Added 2 CRUD APIs. (concise)
+
+✗ I added CRUD APIs, which are for Create, Read, Update, Delete operations. (re-explanation)
 ```
 
-## 언어
+### 2. Summary When Needed
+- List of modified files (can be omitted if diff is available)
+- Test results
+- Cause + solution when a problem occurs
 
-- 모든 설명, 주석, 커밋 메시지: **{{LANGUAGE}}** (한국어/영어)
-- 코드 식별자(변수명, 함수명): 영어 유지
-- 기술 용어: 원어 유지 (예: API, ORM, JWT)
+### 3. Next Steps (optional)
+- Only when the user's decision is needed
+- Present options and recommendations
 
-## 질문 시점
+## Error Reporting Format
 
-아래 경우에만 사용자에게 질문:
-1. 되돌리기 어려운 결정 (삭제, 아키텍처 변경)
-2. 요구사항이 모호해서 2가지 이상 해석 가능
-3. 보안 영향이 있는 변경
+### Error Encountered
+```
+[Error 404] Handler not found in database
+File: domain/board/crud/handler.py:45
+```
 
-아래 경우에는 질문 없이 진행:
-1. 명확한 버그 수정
-2. 린트/포맷 수정
-3. 패턴을 따르는 반복적 코드 생성
+### Cause Analysis
+```
+→ query().filter(Handler.id == handler_id).first() returns None
+→ Handler ID does not exist in DB or condition error
+```
+
+### Solution
+```
+1. Add exception handling to get_handler_info() function
+2. Verify test data
+```
+
+## Code Reference Format
+
+File path + line number:
+```
+routers/dashboard.py:23 — get_recent_alerts function
+```
+
+## Accepting Negative Feedback
+
+Regarding user feedback:
+- Correct immediately without explaining reasons
+- "The reason I didn't change that part is..." ✗ (defensive)
+- "Fixed." ✓ (action-oriented)
+
+## Korean Grammar
+
+- Use polite form (friendliness)
+- Use past tense for completed actions (completion tense)
+- Maintain consistency (no mixing)
+
+## Document Writing
+
+- Use markdown (code blocks, tables, lists)
+- Documents and memory in Korean + technical terms in original language
+- File paths: use exact paths like `docs/`, `issuance_be_fastapi/`, etc.
+
+## Expressions to Avoid
+
+- "Now you can ~" (stating the obvious)
+- "This was a complex/difficult task" (meaningless)
+- "We should ~ in the future" (not confirmed)

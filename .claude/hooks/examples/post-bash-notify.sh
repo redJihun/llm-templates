@@ -1,29 +1,37 @@
 #!/bin/bash
-# Hook: Notification
-# 데스크톱 알림 (Linux/WSL 호환)
-#
-# 설정:
-# "Notification": [{ "matcher": "", "command": "bash .claude/hooks/post-bash-notify.sh" }]
+# WSL2 Windows Toast Notification Hook
+# Sends a Windows Toast notification when Claude Code completes a task
 
-MESSAGE="${CLAUDE_NOTIFICATION:-Claude Code 작업 완료}"
+# Read task status from environment variables
+# $NOTIFICATION_TITLE, $NOTIFICATION_MESSAGE etc. are expected to be set
 
-# Linux (libnotify)
-if command -v notify-send &>/dev/null; then
-    notify-send "Claude Code" "$MESSAGE" --icon=dialog-information 2>/dev/null
-# WSL → Windows 알림
-elif command -v powershell.exe &>/dev/null; then
-    powershell.exe -Command "
-        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-        \$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-        \$textNodes = \$template.GetElementsByTagName('text')
-        \$textNodes.Item(0).AppendChild(\$template.CreateTextNode('Claude Code')) | Out-Null
-        \$textNodes.Item(1).AppendChild(\$template.CreateTextNode('$MESSAGE')) | Out-Null
-        \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$template)
-        [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show(\$toast)
-    " 2>/dev/null
-# macOS
-elif command -v osascript &>/dev/null; then
-    osascript -e "display notification \"$MESSAGE\" with title \"Claude Code\"" 2>/dev/null
-fi
+TITLE="${1:-Claude Code}"
+MESSAGE="${2:-Task completed}"
 
+# Send Windows Toast notification via PowerShell
+# Run 'powershell.exe' from WSL environment
+powershell.exe -NoProfile -NonInteractive -Command "
+  [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications] | Out-Null
+  [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications] | Out-Null
+  [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument] | Out-Null
+
+  \$APP_ID = 'Claude Code'
+  \$template = @\"
+    <toast activationType='protocol' launch='app-defined-string'>
+      <visual>
+        <binding template='ToastText02'>
+          <text id='1'>$TITLE</text>
+          <text id='2'>$MESSAGE</text>
+        </binding>
+      </visual>
+    </toast>
+  \"@
+
+  \$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+  \$xml.LoadXml(\$template)
+  \$toast = New-Object Windows.UI.Notifications.ToastNotification \$xml
+  [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(\$APP_ID).Show(\$toast)
+" 2>/dev/null || true
+
+# Continue even on failure (notifications are optional)
 exit 0

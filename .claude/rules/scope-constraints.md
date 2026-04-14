@@ -1,41 +1,22 @@
-# 범위 제약 규칙 (Scope Constraints)
+# Scope Constraint Rules
 
-<!--
-  Claude가 원치 않는 변경을 하지 않도록 제약.
-  커뮤니티에서 "가장 효과적인 단일 규칙"으로 평가됨.
--->
+## Modification Scope
+- Only modify the files that were requested
+- When fixing bugs, change the minimum number of files
+- Do not modify surrounding code under the pretext of "improvement"
 
-## 수정 범위
+## Prohibited Additions
+- Do not create new files without being asked
+- Do not add docstrings, comments, or type hints to unchanged code
+- Do not design for future requirements (YAGNI)
+- Do not create helper functions, utilities, or abstractions for one-off tasks
 
-- **요청받은 파일만** 수정한다
-- 버그 수정 시 **최소한의 파일**만 변경한다
-- "개선"이라는 명목으로 주변 코드를 수정하지 않는다
-- 리팩토링은 명시적으로 요청받았을 때만 수행한다
-
-## 추가 금지
-
-- 요청 없이 새 파일 생성 금지
-- 기존 코드에 docstring, 주석, 타입 힌트 추가 금지 (변경하지 않은 코드)
-- 에러 핸들링, 폴백, 유효성 검사를 "혹시 몰라서" 추가 금지
-- 헬퍼 함수, 유틸리티, 추상화를 일회성 작업에 생성 금지
-- 미래 요구사항을 위한 설계 금지 (YAGNI)
-
-## 설정 파일
-
-아래 파일은 **사전 확인 없이 수정 금지**:
+## Protected Files (do not modify without prior confirmation)
 - `config.yml`, `.env`, `.env.*`
-- `requirements.txt`, `package.json`, `pyproject.toml`
+- `requirements.txt`
 - `docker-compose*.yml`, `Dockerfile*`
 - `.claude/settings*.json`, `CLAUDE.md`
-- CI/CD 파일 (`.github/workflows/`, `Jenkinsfile` 등)
 
-## 삭제/이동
-
-- 파일 삭제는 사용자 확인 후에만
-- 사용하지 않는 것으로 보이는 코드도 함부로 삭제 금지 — 사용자에게 확인
-- 파일 이동/이름 변경은 사전 확인 필수
-
-## 비동의 시
-
-수정 범위가 불명확하거나, 요청된 변경이 다른 파일에 영향을 줄 때:
-→ 수정하지 말고 **영향 범위를 설명하고 확인을 요청**
+## Delete / Move
+- Delete files only after user confirmation
+- Do not delete code that appears unused without confirmation
