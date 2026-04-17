@@ -9,6 +9,14 @@
 
 > **Executor forbidden actions**: `git commit`, `git push`, proceeding with arbitrary work without additional judgment
 
+## File-Based Communication
+
+```
+docs/work-logs/
+  TASK.md    ← Manager: task instructions
+  RESULT.md  ← Executor: task result report
+```
+
 ---
 
 ## Standard Workflow (3 Phases)
@@ -56,6 +64,15 @@ Delegatable to Haiku:
 
 ---
 
+## Subagent Delegation Principles
+
+- **Single responsibility**: Keep scope narrow (separate exploration/implementation/verification)
+- **Isolation**: Use `isolation: "worktree"` for implementation to isolate from main
+- **Recording**: Each Agent records in its own section of RESULT.md
+- **Count limit**: Max 4-5 (beyond that, context cost increases rapidly)
+
+---
+
 ## Parallel Work Safety Rules
 
 1. **Do not modify the same file simultaneously**
@@ -67,6 +84,23 @@ Not parallelizable: simultaneous modification of the same file, sequential depen
 
 ---
 
+## Session Management Timing
+
+| Timing | Action | Reason |
+|--------|--------|--------|
+| After execution | `/clear` (executor) | Prepare for next TASK |
+| After review | `/compact` (manager) | Maintain design context, prepare for next design |
+
+---
+
+## Common Code Constraints
+
+- Files **500 lines or fewer**
+- Python 3.11+ compatible
+- Follow existing patterns (Key Patterns in CLAUDE.md)
+
+---
+
 ## Standard Verification Commands
 
 ```bash
@@ -75,7 +109,3 @@ uv run ruff format {path}/
 uv run pytest {test file} -v
 uv run pytest tests/ -v  # Full regression test
 ```
-
----
-
-**Extended guidance:** See [docs/team-workflow-extended.md](docs/team-workflow-extended.md) for file-based communication structure, subagent delegation, and session management timing.
