@@ -1,0 +1,61 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(uv run *)",
+      "Bash(python *)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(npm list *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(cat *)",
+      "Bash(sed *)",
+      "Bash(cd *)",
+      "Edit(*)",
+      "Read(*)",
+      "Write(*)",
+      "Load(*)"
+    ],
+    "deny": [
+      "Bash(rm *)",
+      "Bash(git push *)",
+      "Bash(git reset *)",
+      "Bash(git pull *)",
+      "Bash(git commit *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  // "enabledMcpjsonServers": ["mysql"],
+  "hooks": {
+    "Notification": [
+      // {
+      //   "matcher": "",
+      //   "hooks": [
+      //     {
+      //       "type": "command",
+      //       "command": ".claude/hooks/notify.sh"
+      //     }
+      //   ]
+      // }
+    ],
+    "PostToolUse": [
+      // {
+      //   "matcher": "Edit|Write",
+      //   "hooks": [
+      //     {
+      //       "type": "command",
+      //       "command": ".claude/hooks/post-edit-lint.sh"
+      //     }
+      //   ]
+      // }
+    ]
+  }
+}
