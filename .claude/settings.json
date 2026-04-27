@@ -13,16 +13,45 @@
       "Bash(git log *)",
       "Bash(npm list *)",
       "Bash(grep *)",
+      "Bash(grep:*)",
       "Bash(find *)",
+      "Bash(find:*)",
       "Bash(head *)",
+      "Bash(head:*)",
       "Bash(tail *)",
+      "Bash(tail:*)",
       "Bash(cat *)",
+      "Bash(cat:*)",
       "Bash(sed *)",
+      "Bash(sed:*)",
       "Bash(cd *)",
+      "Bash(cd*)",
+      "Bash(cd:*)",
+      "Bash(cd: *)",
+      "Bash(cd :*)",
+      "Bash(cd : *)",
+      "Bash(wc:*)",
+      "Bash(wc *)",
+      "Bash(sort:*)",
+      "Bash(sort *)",
       "Edit(*)",
       "Read(*)",
       "Write(*)",
-      "Load(*)"
+      "Skill(brainstorm)",
+      "Skill(brainstorm-opus)",
+      "Skill(command-create)",
+      "Skill(command-gen)",
+      "Skill(commit-message-suggest)",
+      "Skill(crud-gen)",
+      "Skill(deploy-check)",
+      "Skill(dev-flow)",
+      "Skill(prompt-create)",
+      "Skill(squash-merge-suggest)",
+      "Skill(task-exec)",
+      "Skill(task-plan)",
+      "Skill(verify)",
+      "Skill(work-log-close)",
+      "Skill(work-log-create)"
     ],
     "deny": [
       "Bash(rm *)",
@@ -33,29 +62,29 @@
     ]
   },
   "enableAllProjectMcpServers": true,
-  // "enabledMcpjsonServers": ["mysql"],
+  "enabledMcpjsonServers": ["mysql"],
   "hooks": {
     "Notification": [
-      // {
-      //   "matcher": "",
-      //   "hooks": [
-      //     {
-      //       "type": "command",
-      //       "command": ".claude/hooks/notify.sh"
-      //     }
-      //   ]
-      // }
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/notify.sh"
+          }
+        ]
+      }
     ],
     "PostToolUse": [
-      // {
-      //   "matcher": "Edit|Write",
-      //   "hooks": [
-      //     {
-      //       "type": "command",
-      //       "command": ".claude/hooks/post-edit-lint.sh"
-      //     }
-      //   ]
-      // }
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-lint.sh"
+          }
+        ]
+      }
     ]
   }
 }
